@@ -2,6 +2,11 @@ name: Build ExtremeROM
 
 on:
   workflow_dispatch:
+    inputs:
+      target_device:
+        description: 'Device to build (e.g., r0s, beyond1lte, etc.)'
+        required: true
+        default: 'r0s'
 
 jobs:
   build:
@@ -10,7 +15,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [beyond0lte, beyond1lte, beyond2lte, beyondx, x1s, y2s, z3s, c1s, c2s, r8s, o1s, t2s, p3s, r9s, r0s, b0s, g0s]
+        # This draws the value from the UI input above
+        target: ["${{ github.event.inputs.target_device }}"]
 
     steps:
       - name: Checkout repo
@@ -45,6 +51,9 @@ jobs:
           sudo modprobe erofs f2fs
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Create security directory if it doesn't exist
+          mkdir -p security
           echo -n "${{ secrets.PLATFORM_KEY_PK8 }}" | base64 --decode > security/extremerom_platform.pk8
           echo -n "${{ secrets.PLATFORM_KEY_PEM }}" | base64 --decode > security/extremerom_platform.x509.pem
 
@@ -88,6 +97,10 @@ jobs:
       - name: Upload to GoFile
         run: |
           ZIP_FILE=$(find out -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No zip file found in out/ directory!"
+            exit 1
+          fi
 
           RESPONSE=$(curl -s -F "file=@$ZIP_FILE" -F "token=${{ secrets.GOFILE_TOKEN }}" -F "folderId=${{ secrets.GOFILE_FOLDER_ID }}" "https://upload-eu-par.gofile.io/uploadFile")
 
